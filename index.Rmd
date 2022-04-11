@@ -1,0 +1,184 @@
+---
+title: "Project"
+author: "Zach Morby"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output: 
+  html_document:
+    df_print: paged
+    code_folding: "hide"
+    toc: yes
+    fig_caption: yes
+    theme: cerulean
+    toc_float: no
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+graphics.off()
+```
+
+```{r load packages, message = FALSE, include = FALSE}
+require(fpp3)
+require(tidyquant)
+require(stargazer)
+require(kableExtra)
+require(fma)
+require(reshape2)
+```
+
+```{r getdata}
+VarList <- c("PCEPI", "UNRATE", "EXPINF1YR", "IPMAN", "HOUST")
+fred_data <- tq_get(VarList, get="economic.data", from="1982-01-01") %>% 
+  mutate(Month = yearmonth(date), value = price) %>%
+  select(-c(date, price)) %>% 
+  as_tsibble(index = Month, key = symbol) %>%
+  pivot_wider(names_from = symbol, values_from = value)
+```
+
+```{r mutate}
+clean_data <- fred_data %>% select(c(PCEPI, UNRATE, EXPINF1YR, IPMAN, HOUST)) %>%
+  mutate(infl = 1200*log(PCEPI/lag(PCEPI))) %>% 
+  mutate(dinfl = infl - lag(infl,1)) %>% 
+  mutate(dinfl12 = 100*log(PCEPI/lag(PCEPI,12)) - lag(infl,12)) %>% 
+  mutate(unrate = UNRATE - lag(UNRATE)) %>% 
+  mutate(expinf1yr = EXPINF1YR - lag(EXPINF1YR)) %>% 
+  mutate(ipman = 1200*log(IPMAN/lag(IPMAN))) %>% 
+  mutate(houst = 100*log(HOUST/lag(HOUST))) %>% 
+  select(-c(PCEPI, UNRATE, EXPINF1YR, IPMAN, HOUST)) %>% 
+  drop_na()
+train_data <- clean_data %>% filter_index(~ "2019-12")
+test_data <- clean_data %>% filter_index("2020-01" ~ .)
+```
+
+# Introduction
+
+We are attempting to find a model that can forecast future levels of U.S. inflation accurately. We used Personal Consumption Expenditures: Chain-type Price Index as the marker for inflation. To predict different models, we used unemployment rate, 1-Year Expected Inflation, Industrial Production: Manufacturing (NAICS), and New Privately-Owned Housing Units Started: Total Units data from the FRED database as potential indicators to predict future inflation. 
+
+# Variable Explanation
+
+We chose to use these variables as potential indicators of inflation for various reasons. 
+
+Unemployment rate and inflation are both indicators of how the economy is performing, so it is possible that unemployment may be a good predictor of inflation. Unemployment is the standard indicator for inflation used in the Phillips Curve model, a model that is often used to predict inflation. We will also be using modified Phillips Curve models with the other variables to explore other potential predictors.
+
+The 1-Year Expected Inflation is a predictor that the Federal Reserve puts out that predicts the inflation for the following year. It could be possible to predict further into the future if this variable has been historically accurate. 
+
+Industrial Production has also been used as an indicator for inflation. High levels of production/manufacturing can lead to higher levels of consumption, which theoretically could increase inflation. 
+
+As for New Housing Started, inflation tends to have a direct effect on  the new housing market. Higher prices from higher inflation is going to lead to higher costs of building houses and overall less houses built. Because inflation today does affect the housing starts tomorrow, it could be possible to build a model using the data for housing starts lagged by a year to predict inflation, essentially reversing the effect to predict inflation.
+
+# Model Development
+
+We used Personal Consumption Expenditures: Chain-type Price Index to create a variable for inflation that we could use in our models.
+
+Using this inflation variable, we built four different models, one using each of the four aforementioned variables as potential predictors of inflation. 
+
+The models were developed by specifying the data to a Phillips Curve equation. The concept of a Phillips Curve is that in a steady state, with no shocks to the economy, there is an equilibrium between inflation and unemployment. We started by fitting the model using the original Phillips Model with unemployment as the indicator for inflation. Then, using the other variables as potential indicators, and using the same Phillips Curve model, we built three more models to see if any of the variables are better indicators of inflation than unemployment.
+
+# Initital Accuracy Assessment
+
+After looking at the initial diagnostics for the models, it is evident that none of the models are accurate indicators of inflation. Even the stereotypically fitted Phillips Curve model using unemployment was inaccurate. The residual diagnostics show that there is a lot of unexplained noise in the model. This means that there is a lot of variance in the data that isn't explained in our models.
+
+```{r melt, include = FALSE}
+data_melt <- melt(clean_data, "Month")
+ggplot(data_melt, aes(Month, value)) + 
+  geom_line() + 
+  facet_wrap(~variable, scales = "free", ncol = 2)
+```
+
+```{r model, include = FALSE}
+fit_model <- train_data %>% 
+  model(
+    mUNRATE = TSLM(dinfl12 ~ 1 +
+                 lag(dinfl,12) + lag(dinfl,13) + lag(dinfl,14) +
+                 lag(dinfl,15) + lag(dinfl,16) + lag(dinfl,17) +
+                 lag(dinfl,18) + lag(dinfl,19) + lag(dinfl,20) +
+                 lag(dinfl,21) + lag(dinfl,22) + lag(dinfl,23) +
+                 lag(unrate,12) + lag(unrate,13) + lag(unrate,14) +
+                 lag(unrate,15) + lag(unrate,16) + lag(unrate,17) +
+                 lag(unrate,18) + lag(unrate,19) + lag(unrate,20) +
+                 lag(unrate,21) + lag(unrate,22) + lag(unrate,23)),
+    
+    mEXPINF1YR = TSLM(dinfl12 ~ 1 +
+                 lag(dinfl,12) + lag(dinfl,13) + lag(dinfl,14) +
+                 lag(dinfl,15) + lag(dinfl,16) + lag(dinfl,17) +
+                 lag(dinfl,18) + lag(dinfl,19) + lag(dinfl,20) +
+                 lag(dinfl,21) + lag(dinfl,22) + lag(dinfl,23) +
+                 lag(expinf1yr,12) + lag(expinf1yr,13) + lag(expinf1yr,14) +
+                 lag(expinf1yr,15) + lag(expinf1yr,16) + lag(expinf1yr,17) +
+                 lag(expinf1yr,18) + lag(expinf1yr,19) + lag(expinf1yr,20) +
+                 lag(expinf1yr,21) + lag(expinf1yr,22) + lag(expinf1yr,23)),
+    
+    mIPMAN = TSLM(dinfl12 ~ 1 +
+                 lag(dinfl,12) + lag(dinfl,13) + lag(dinfl,14) +
+                 lag(dinfl,15) + lag(dinfl,16) + lag(dinfl,17) +
+                 lag(dinfl,18) + lag(dinfl,19) + lag(dinfl,20) +
+                 lag(dinfl,21) + lag(dinfl,22) + lag(dinfl,23) +
+                 lag(ipman,12) + lag(ipman,13) + lag(ipman,14) +
+                 lag(ipman,15) + lag(ipman,16) + lag(ipman,17) +
+                 lag(ipman,18) + lag(ipman,19) + lag(ipman,20) +
+                 lag(ipman,21) + lag(ipman,22) + lag(ipman,23)),
+    
+    mHOUST = TSLM(dinfl12 ~ 1 +
+                 lag(dinfl,12) + lag(dinfl,13) + lag(dinfl,14) +
+                 lag(dinfl,15) + lag(dinfl,16) + lag(dinfl,17) +
+                 lag(dinfl,18) + lag(dinfl,19) + lag(dinfl,20) +
+                 lag(dinfl,21) + lag(dinfl,22) + lag(dinfl,23) +
+                 lag(houst,12) + lag(houst,13) + lag(houst,14) +
+                 lag(houst,15) + lag(houst,16) + lag(houst,17) +
+                 lag(houst,18) + lag(houst,19) + lag(houst,20) +
+                 lag(houst,21) + lag(houst,22) + lag(houst,23))
+  )
+
+tidy(fit_model)
+accuracy(fit_model)
+```
+
+```{r check_fit, warning = FALSE, include = FALSE}
+fit_model %>% select(mUNRATE) %>% gg_tsresiduals()
+```
+
+```{r check, include = FALSE, warning = FALSE}
+fit_model %>% select(mEXPINF1YR) %>% gg_tsresiduals()
+fit_model %>% select(mIPMAN) %>% gg_tsresiduals()
+fit_model %>% select(mHOUST) %>% gg_tsresiduals()
+```
+
+# Adding a Model
+
+```{r ensemble}
+fit_combo <- fit_model %>% mutate(combo = (mUNRATE + mEXPINF1YR + mIPMAN + mHOUST)/4)
+```
+
+We then created a fourth ensemble model by averaging the four other models. This, in theory, should return a more accurate model because it should account for multiple factors that may be part of the unexplained variation in the simple models.  
+
+# Forecast
+
+The following graph shows the forecast of the five models. The black line is the actual inflation rate. Each colored line represents the prediction of one of different model. The shaded area is the 95% confidence interval. A good model will have a line that similarly follows the black line and a small shaded area for its confidence interval. Looking at the forecast graph, it is evident that the unemployment rate was actually the worst predictor of inflation. It is also evident that none of the models were very accurate at forecasting more than a few months out. 
+
+
+```{r forecast}
+fc_inflation <- fit_combo %>% forecast(new_data = test_data)
+fc_inflation %>% autoplot(filter(clean_data, year(Month) > 2016), level = c(95))
+```
+
+# Accuracy
+
+Finally, we evaluated the accuracy of each of our five models. None of the models were very accurate. They all did a poor job predicting the actual inflation in every metric we looked at. None of the models stood out as doing a better job predicting inflation than the other models. There was no clear best model. The combination model had a much lower Mean Absolute Percentage Error (MAPE), indicating that it may be the most relatively accurate of our five models. However, they all had incredibly high MAPE's, indicating that the models all performed poorly.
+
+```{r accuracy, include = FALSE}
+accuracy(fit_combo)
+accuracy(fc_inflation, clean_data)
+```
+
+```{r table}
+test_accuracy <- accuracy(fc_inflation, clean_data) %>% 
+  select(c(".model", ".type", "MAPE")) %>%
+  kable(format = "html", table.attr = "sytle='widtth:30%$;' ") %>% 
+  kableExtra::kable_styling()
+
+test_accuracy
+```
+
+# Conclusion
+None of our models did a very good at predicting inflation. This is largely due to the fact that everything in the economy is interconnected. There are too many moving parts to be able to parse out one or two factors as explanatory predictors of another part of the economy. There may be a model out there that accurately predicts inflation, but no one has found it yet. We can confidently say that it is not any of these models. 
