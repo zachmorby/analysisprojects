@@ -1,5 +1,5 @@
 ---
-title: "Project"
+title: "Forecasting Inflation"
 author: "Zach Morby"
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
 output: 
