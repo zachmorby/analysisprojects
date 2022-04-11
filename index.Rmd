@@ -12,6 +12,8 @@ output:
     toc_float: no
 ---
 
+Link to GitHub: [zachmorby.github.io](zachmorby.github.io)
+
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 rm(list = ls())
@@ -27,7 +29,7 @@ require(fma)
 require(reshape2)
 ```
 
-```{r getdata}
+```{r getdata, include = FALSE}
 VarList <- c("PCEPI", "UNRATE", "EXPINF1YR", "IPMAN", "HOUST")
 fred_data <- tq_get(VarList, get="economic.data", from="1982-01-01") %>% 
   mutate(Month = yearmonth(date), value = price) %>%
@@ -36,7 +38,7 @@ fred_data <- tq_get(VarList, get="economic.data", from="1982-01-01") %>%
   pivot_wider(names_from = symbol, values_from = value)
 ```
 
-```{r mutate}
+```{r mutate, include = FALSE}
 clean_data <- fred_data %>% select(c(PCEPI, UNRATE, EXPINF1YR, IPMAN, HOUST)) %>%
   mutate(infl = 1200*log(PCEPI/lag(PCEPI))) %>% 
   mutate(dinfl = infl - lag(infl,1)) %>% 
@@ -146,7 +148,7 @@ fit_model %>% select(mHOUST) %>% gg_tsresiduals()
 
 # Adding a Model
 
-```{r ensemble}
+```{r ensemble, include = FALSE}
 fit_combo <- fit_model %>% mutate(combo = (mUNRATE + mEXPINF1YR + mIPMAN + mHOUST)/4)
 ```
 

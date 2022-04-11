@@ -200,24 +200,7 @@ pre code {
 </ul>
 </div>
 
-<pre class="r"><code>VarList &lt;- c(&quot;PCEPI&quot;, &quot;UNRATE&quot;, &quot;EXPINF1YR&quot;, &quot;IPMAN&quot;, &quot;HOUST&quot;)
-fred_data &lt;- tq_get(VarList, get=&quot;economic.data&quot;, from=&quot;1982-01-01&quot;) %&gt;% 
-  mutate(Month = yearmonth(date), value = price) %&gt;%
-  select(-c(date, price)) %&gt;% 
-  as_tsibble(index = Month, key = symbol) %&gt;%
-  pivot_wider(names_from = symbol, values_from = value)</code></pre>
-<pre class="r"><code>clean_data &lt;- fred_data %&gt;% select(c(PCEPI, UNRATE, EXPINF1YR, IPMAN, HOUST)) %&gt;%
-  mutate(infl = 1200*log(PCEPI/lag(PCEPI))) %&gt;% 
-  mutate(dinfl = infl - lag(infl,1)) %&gt;% 
-  mutate(dinfl12 = 100*log(PCEPI/lag(PCEPI,12)) - lag(infl,12)) %&gt;% 
-  mutate(unrate = UNRATE - lag(UNRATE)) %&gt;% 
-  mutate(expinf1yr = EXPINF1YR - lag(EXPINF1YR)) %&gt;% 
-  mutate(ipman = 1200*log(IPMAN/lag(IPMAN))) %&gt;% 
-  mutate(houst = 100*log(HOUST/lag(HOUST))) %&gt;% 
-  select(-c(PCEPI, UNRATE, EXPINF1YR, IPMAN, HOUST)) %&gt;% 
-  drop_na()
-train_data &lt;- clean_data %&gt;% filter_index(~ &quot;2019-12&quot;)
-test_data &lt;- clean_data %&gt;% filter_index(&quot;2020-01&quot; ~ .)</code></pre>
+<p>Link to GitHub: <a href="zachmorby.github.io">zachmorby.github.io</a></p>
 <div id="introduction" class="section level1">
 <h1>Introduction</h1>
 <p>We are attempting to find a model that can forecast future levels of U.S. inflation accurately. We used Personal Consumption Expenditures: Chain-type Price Index as the marker for inflation. To predict different models, we used unemployment rate, 1-Year Expected Inflation, Industrial Production: Manufacturing (NAICS), and New Privately-Owned Housing Units Started: Total Units data from the FRED database as potential indicators to predict future inflation.</p>
@@ -242,7 +225,6 @@ test_data &lt;- clean_data %&gt;% filter_index(&quot;2020-01&quot; ~ .)</code></
 </div>
 <div id="adding-a-model" class="section level1">
 <h1>Adding a Model</h1>
-<pre class="r"><code>fit_combo &lt;- fit_model %&gt;% mutate(combo = (mUNRATE + mEXPINF1YR + mIPMAN + mHOUST)/4)</code></pre>
 <p>We then created a fourth ensemble model by averaging the four other models. This, in theory, should return a more accurate model because it should account for multiple factors that may be part of the unexplained variation in the simple models.</p>
 </div>
 <div id="forecast" class="section level1">
